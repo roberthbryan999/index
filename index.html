@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>index</title>
+<style>
+  *{box-sizing:border-box}
+  html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#030812;color:#b9faff;font-family:system-ui,Segoe UI,sans-serif}
+  body{background:radial-gradient(ellipse at 50% 48%,#092b43 0%,#061322 35%,#02050d 76%)}
+  canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
+  .hud{position:absolute;inset:0;pointer-events:none;display:flex;flex-direction:column;justify-content:space-between;padding:clamp(18px,4vw,42px)}
+  .top{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;text-transform:uppercase;letter-spacing:.22em;font-size:11px;color:#66eaff;text-shadow:0 0 12px #00d9ff}
+  .tag{border:1px solid #2deaff66;padding:9px 12px;background:#06243b55;box-shadow:0 0 18px #00cfff18}
+  .center-label{position:absolute;left:50%;top:82%;transform:translate(-50%,-50%);text-align:center;white-space:nowrap}
+  h1{font-size:clamp(20px,3vw,34px);font-weight:300;letter-spacing:.42em;margin:0 0 8px;text-shadow:0 0 16px #00dfff}
+  .sub{font-size:10px;letter-spacing:.3em;color:#62bcca}
+  .bottom{display:flex;justify-content:space-between;align-items:end;font-size:10px;letter-spacing:.16em;color:#438a9d}
+  .hint{color:#8cefff}
+  .scan{position:absolute;inset:0;pointer-events:none;opacity:.13;background:repeating-linear-gradient(to bottom,transparent 0px,transparent 3px,#5defff 4px);mix-blend-mode:screen}
+  .vignette{position:absolute;inset:0;pointer-events:none;background:radial-gradient(ellipse,transparent 35%,#01040bd9 100%)}
+  button{pointer-events:auto;background:#05283a99;color:#8ff7ff;border:1px solid #37dfff88;padding:9px 13px;font:inherit;letter-spacing:.12em;cursor:pointer}
+  button:hover{background:#0b4960}
+  @media(max-width:600px){.top{font-size:9px}.bottom{font-size:8px}.center-label{top:79%}.tag{padding:7px}}
+</style>
+</head>
+<body>
+<canvas id="scene"></canvas>
+<div class="scan"></div><div class="vignette"></div>
+<div class="hud">
+  <div class="top"><div class="tag">HOLO / 01<br><span style="opacity:.6">PROYECCIÓN ACTIVA</span></div><div class="tag" id="status">● SISTEMA ONLINE</div></div>
+  <div class="center-label"><h1>HOLOGRAM</h1><div class="sub">INTERFAZ DE LUZ · EN MOVIMIENTO</div></div>
+  <div class="bottom"><div>FRECUENCIA <span class="hint">60.0 HZ</span><br>CAMPO DE ENERGÍA ESTABLE</div><div style="text-align:right"><button id="pause">PAUSAR</button><br><span style="display:inline-block;margin-top:9px">MUEVE EL CURSOR PARA INTERACTUAR</span></div></div>
+</div>
+<script>
+const canvas=document.getElementById('scene'),ctx=canvas.getContext('2d');
+let w,h,cx,cy,dpr, t=0, paused=false, mouse={x:0,y:0};
+function resize(){dpr=Math.min(devicePixelRatio||1,2);w=innerWidth;h=innerHeight;canvas.width=w*dpr;canvas.height=h*dpr;ctx.setTransform(dpr,0,0,dpr,0,0);cx=w/2;cy=h*.45}
+addEventListener('resize',resize);resize();
+addEventListener('pointermove',e=>{mouse.x=(e.clientX-w/2)/w;mouse.y=(e.clientY-h/2)/h});
+document.getElementById('pause').onclick=()=>{paused=!paused;document.getElementById('pause').textContent=paused?'REANUDAR':'PAUSAR';document.getElementById('status').textContent=paused?'Ⅱ EN ESPERA':'● SISTEMA ONLINE'};
+const rand=(a,b)=>a+Math.random()*(b-a);
+const stars=Array.from({length:150},()=>({x:Math.random(),y:Math.random(),r:rand(.3,1.5),a:rand(.15,.8),p:rand(0,7)}));
+function line(x1,y1,x2,y2,alpha=1,width=1){ctx.strokeStyle=`rgba(75,235,255,${alpha})`;ctx.lineWidth=width;ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.stroke()}
+function draw(){
+ requestAnimationFrame(draw);if(!paused)t+=.012;
+ ctx.clearRect(0,0,w,h);
+ // ambient particles
+ for(const s of stars){let tw=.45+.45*Math.sin(t*2+s.p);ctx.fillStyle=`rgba(86,224,255,${s.a*tw})`;ctx.beginPath();ctx.arc(s.x*w,s.y*h,s.r,0,Math.PI*2);ctx.fill()}
+ const scale=Math.min(w,h)*.28, tilt=Math.sin(t*.7)*.16+mouse.x*.25, bob=Math.sin(t*1.4)*9;
+ const ox=cx+mouse.x*25, oy=cy+bob+mouse.y*18;
+ // ground projection rings
+ for(let i=0;i<5;i++){ctx.beginPath();ctx.ellipse(cx,cy+scale*.98+i*7,scale*(.63+i*.12),scale*(.12+i*.018),0,0,Math.PI*2);ctx.strokeStyle=`rgba(28,210,255,${.24-i*.035})`;ctx.lineWidth=1;ctx.stroke()}
+ // vertical light beam
+ const beam=ctx.createLinearGradient(0,oy-scale*1.4,0,oy+scale*1.2);beam.addColorStop(0,'rgba(0,230,255,0)');beam.addColorStop(.5,'rgba(0,210,255,.09)');beam.addColorStop(1,'rgba(0,230,255,0)');
+ ctx.fillStyle=beam;ctx.fillRect(ox-scale*.5,oy-scale*1.5,scale,scale*3);
+ ctx.save();ctx.translate(ox,oy);ctx.rotate(tilt);
+ // holographic orb / energy core
+ const R=scale*.73;
+ let glow=ctx.createRadialGradient(0,0,2,0,0,R*1.2);glow.addColorStop(0,'rgba(80,250,255,.17)');glow.addColorStop(.65,'rgba(0,180,255,.07)');glow.addColorStop(1,'rgba(0,180,255,0)');
+ ctx.fillStyle=glow;ctx.beginPath();ctx.arc(0,0,R*1.2,0,Math.PI*2);ctx.fill();
+ // latitude curves
+ for(let j=-5;j<=5;j++){
+   let lat=j*Math.PI/12, rr=R*Math.cos(lat), yy=R*Math.sin(lat);
+   ctx.beginPath();ctx.ellipse(0,yy,rr,rr*.19,Math.sin(t*.8+j)*.08,0,Math.PI*2);
+   ctx.strokeStyle=`rgba(${j===0?115:38},${j===0?248:205},255,${.38+(.2*Math.cos(t+j))})`;ctx.lineWidth=j===0?1.8:1;ctx.stroke();
+ }
+ // rotating meridians
+ for(let k=0;k<12;k++){
+   const a=k*Math.PI/12+t*.55;
+   ctx.beginPath();ctx.ellipse(0,0,R*Math.abs(Math.cos(a)),R,0,0,Math.PI*2);
+   ctx.strokeStyle=`rgba(70,225,255,${.2+.2*Math.abs(Math.cos(a))})`;ctx.lineWidth=.9;ctx.stroke();
+ }
+ // orbiting luminous nodes
+ for(let k=0;k<4;k++){let a=t*(.7+k*.12)+k*Math.PI/2;let x=Math.cos(a)*R*.98,y=Math.sin(a)*R*.34;ctx.shadowBlur=18;ctx.shadowColor='#35efff';ctx.fillStyle='#baffff';ctx.beginPath();ctx.arc(x,y,3.2,0,Math.PI*2);ctx.fill();ctx.shadowBlur=0}
+ // horizontal scan sweep
+ let sy=Math.sin(t*1.3)*R*.85;ctx.shadowBlur=12;ctx.shadowColor='#00eaff';line(-R*.94,sy,R*.94,sy,.85,1.5);ctx.shadowBlur=0;
+ // small HUD brackets
+ ctx.strokeStyle='rgba(90,240,255,.7)';ctx.lineWidth=1;
+ for(const sx of [-1,1])for(const sy2 of [-1,1]){ctx.beginPath();ctx.moveTo(sx*R*1.13,sy2*R*.72);ctx.lineTo(sx*R*1.13,sy2*R*.58);ctx.lineTo(sx*R*.98,sy2*R*.58);ctx.stroke()}
+ ctx.restore();
+ // floating data fragments
+ ctx.font='10px monospace';ctx.fillStyle='rgba(87,222,255,.6)';
+ for(let i=0;i<7;i++){let yy=(t*22+i*73)%(h);let xx=cx+scale*(.95+Math.sin(i*9)*.28);ctx.fillText(['0101','HOLO','07-A','SYNC','∞'][i%5],xx,yy)}
+ // center pulse
+ let p=3+Math.sin(t*2)*1.2;ctx.fillStyle='rgba(126,250,255,.9)';ctx.shadowBlur=20;ctx.shadowColor='#00eaff';ctx.beginPath();ctx.arc(ox,oy,p,0,Math.PI*2);ctx.fill();ctx.shadowBlur=0;
+}
+draw();
+</script>
+</body>
+</html>
